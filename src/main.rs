@@ -1,3 +1,3 @@
-fn main() {
-    gilo::start().unwrap();
+fn main() -> anyhow::Result<()> {
+    gilo::start()
 }

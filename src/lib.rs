@@ -1,8 +1,8 @@
-use std::io;
 mod hidapi;
+mod hidpp;
 
-pub fn start() -> io::Result<()> {
-    for device in hidapi::scan_devices(0x046d)? {
+pub fn start() -> anyhow::Result<()> {
+    for device in hidapi::scan_devices()?.filter(|d| d.vendor == 0x046d) {
         println!(
             "Path: {}, VID: {:#04X}, PID: {:#04X}",
             device.path.display(),

@@ -1,6 +1,5 @@
 use std::{
     fs::{self, OpenOptions},
-    io,
     os::{fd::AsRawFd, unix::fs::FileTypeExt},
     path::PathBuf,
 };
@@ -32,7 +31,7 @@ impl HidDeviceInfo {
     }
 }
 
-pub fn scan_devices(vendor_id: u16) -> io::Result<impl Iterator<Item = HidDeviceInfo>> {
+pub fn scan_devices() -> anyhow::Result<impl Iterator<Item = HidDeviceInfo>> {
     Ok(fs::read_dir("/dev")?
         .filter_map(|entry| entry.ok())
         .filter(|entry| {
@@ -49,10 +48,6 @@ pub fn scan_devices(vendor_id: u16) -> io::Result<impl Iterator<Item = HidDevice
 
             let vid = i16::cast_unsigned(dev_info.vendor);
             let pid = i16::cast_unsigned(dev_info.product);
-
-            if vid != vendor_id {
-                return None;
-            }
 
             Some(HidDeviceInfo::new(entry.path(), vid, pid))
         }))
