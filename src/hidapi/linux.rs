@@ -4,6 +4,8 @@ use std::{
     path::PathBuf,
 };
 
+use crate::hidapi::HidDeviceInfo;
+
 #[repr(C)]
 #[derive(Default)]
 struct HidRawDevInfo {
@@ -14,24 +16,7 @@ struct HidRawDevInfo {
 
 const HIDIOCGRAWINFO: u64 = libc::_IOR::<HidRawDevInfo>('H' as u32, 0x03) as u64;
 
-#[allow(dead_code)]
-pub struct HidDeviceInfo {
-    pub path: PathBuf,
-    pub vendor: u16,
-    pub product: u16,
-}
-
-impl HidDeviceInfo {
-    fn new(path: PathBuf, vendor: u16, product: u16) -> Self {
-        Self {
-            path,
-            vendor,
-            product,
-        }
-    }
-}
-
-pub fn scan_devices() -> anyhow::Result<impl Iterator<Item = HidDeviceInfo>> {
+pub(super) fn scan_devices() -> anyhow::Result<impl Iterator<Item = HidDeviceInfo>> {
     Ok(fs::read_dir("/dev")?
         .filter_map(|entry| entry.ok())
         .filter(|entry| {

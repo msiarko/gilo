@@ -1,15 +1,18 @@
 #![allow(dead_code)]
 
+use std::path::PathBuf;
+
 use anyhow::anyhow;
 
-use crate::hidapi::HidDeviceInfo;
-use std::{
+use tokio::{
     fs,
-    io::{Read, Write},
+    io::{AsyncReadExt, AsyncWriteExt},
 };
 
+use crate::hidapi::HidDeviceInfo;
+
 #[repr(C)]
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Clone, Copy)]
 struct HidMessageHeader {
     report_id: u8,
     device_index: u8,
@@ -18,26 +21,27 @@ struct HidMessageHeader {
 }
 
 #[repr(C)]
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Clone, Copy)]
 pub struct HidShortMessage {
     header: HidMessageHeader,
     params: [u8; 3],
 }
 
 #[repr(C)]
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Clone, Copy)]
 pub struct HidLongMessage {
     header: HidMessageHeader,
     params: [u8; 16],
 }
 
-#[derive(Debug)]
-pub enum HidMessage<'a> {
-    Short(&'a HidShortMessage),
-    Long(&'a HidLongMessage),
+#[derive(Debug, Clone)]
+pub enum HidMessage {
+    Short(HidShortMessage),
+    Long(HidLongMessage),
+    Unknown(Vec<u8>),
 }
 
-trait AsBytes: Sized {
+pub trait AsBytes: Sized {
     fn as_bytes(&self) -> &[u8] {
         unsafe {
             std::slice::from_raw_parts(
@@ -48,8 +52,8 @@ trait AsBytes: Sized {
     }
 }
 
-trait FromBytes: Sized {
-    fn from_bytes(bytes: &[u8]) -> anyhow::Result<&Self> {
+pub trait FromBytes: Sized + Copy {
+    fn from_bytes(bytes: &[u8]) -> anyhow::Result<Self> {
         let size = std::mem::size_of::<Self>();
         if bytes.len() < size {
             return Err(anyhow!(
@@ -64,7 +68,7 @@ trait FromBytes: Sized {
             return Err(anyhow!("Bytes slice and struct have different alignment"));
         }
 
-        Ok(unsafe { &*(ptr as *const Self) })
+        Ok(unsafe { *(ptr as *const Self) })
     }
 }
 
@@ -74,57 +78,72 @@ impl FromBytes for HidShortMessage {}
 impl AsBytes for HidLongMessage {}
 impl FromBytes for HidLongMessage {}
 
-impl<'a> HidMessage<'a> {
-    fn from_bytes(value: &'a [u8]) -> anyhow::Result<Self> {
+impl HidMessage {
+    pub fn from_bytes(value: &[u8]) -> anyhow::Result<Self> {
         if value.is_empty() {
             return Err(anyhow!("Empty message"));
         }
 
         match value[0] {
-            0x10 | 0x02 => Ok(HidMessage::Short(HidShortMessage::from_bytes(value)?)),
-            0x11 | 0x03 => Ok(HidMessage::Long(HidLongMessage::from_bytes(value)?)),
-            _ => Err(anyhow!("Unknown report ID")),
+            0x10 | 0x02 => match HidShortMessage::from_bytes(value) {
+                Ok(msg) => Ok(HidMessage::Short(msg)),
+                Err(_) => Ok(HidMessage::Unknown(value.to_vec())),
+            },
+            0x11 | 0x03 => match HidLongMessage::from_bytes(value) {
+                Ok(msg) => Ok(HidMessage::Long(msg)),
+                Err(_) => Ok(HidMessage::Unknown(value.to_vec())),
+            },
+            _ => Ok(HidMessage::Unknown(value.to_vec())),
         }
     }
 
-    fn as_bytes(&self) -> &[u8] {
+    pub fn as_bytes(&self) -> &[u8] {
         match self {
             HidMessage::Short(short) => short.as_bytes(),
             HidMessage::Long(long) => long.as_bytes(),
+            HidMessage::Unknown(raw) => raw.as_slice(),
         }
     }
 }
 
 pub struct HidDevice {
+    path: PathBuf,
     file: fs::File,
     buf: [u8; std::mem::size_of::<HidLongMessage>()],
 }
 
 impl HidDevice {
-    pub fn read(&mut self) -> anyhow::Result<HidMessage<'_>> {
-        let bytes_read = self.file.read(&mut self.buf)?;
+    pub async fn read(&mut self) -> anyhow::Result<HidMessage> {
+        let bytes_read = self.file.read(&mut self.buf).await?;
         HidMessage::from_bytes(&self.buf[..bytes_read])
     }
 
-    pub fn write(&mut self, message: &HidMessage) -> anyhow::Result<()> {
+    pub async fn write(&mut self, message: &HidMessage) -> anyhow::Result<()> {
         let bytes = message.as_bytes();
-        let written = self.file.write(bytes)?;
+        let written = self.file.write(bytes).await?;
         assert_eq!(bytes.len(), written);
         Ok(())
+    }
+
+    pub fn path(&self) -> &PathBuf {
+        &self.path
     }
 }
 
 pub trait IntoHidDevice {
-    fn open(&self) -> anyhow::Result<HidDevice>;
+    fn into_hid_device(self) -> impl Future<Output = anyhow::Result<HidDevice>>;
 }
 
 impl IntoHidDevice for HidDeviceInfo {
-    fn open(&self) -> anyhow::Result<HidDevice> {
+    async fn into_hid_device(self) -> anyhow::Result<HidDevice> {
         let file = fs::OpenOptions::new()
             .read(true)
             .write(true)
-            .open(&self.path)?;
+            .open(&self.path)
+            .await
+            .map_err(|err| anyhow!("Path: {}; Error: {}", self.path.display().to_string(), err))?;
         Ok(HidDevice {
+            path: self.path,
             file,
             buf: [0; std::mem::size_of::<HidLongMessage>()],
         })
