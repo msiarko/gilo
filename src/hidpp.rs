@@ -1,7 +1,5 @@
 #![allow(dead_code)]
 
-use std::path::PathBuf;
-
 use anyhow::anyhow;
 
 use tokio::{
@@ -107,12 +105,26 @@ impl HidMessage {
 }
 
 pub struct HidDevice {
-    path: PathBuf,
+    pub info: HidDeviceInfo,
     file: fs::File,
     buf: [u8; std::mem::size_of::<HidLongMessage>()],
 }
 
 impl HidDevice {
+    pub async fn new(info: HidDeviceInfo) -> anyhow::Result<HidDevice> {
+        let file = fs::OpenOptions::new()
+            .read(true)
+            .write(true)
+            .open(&info.path)
+            .await
+            .map_err(|err| anyhow!("Path: {}; Error: {}", info.path.display(), err))?;
+        Ok(HidDevice {
+            info: info,
+            file,
+            buf: [0; std::mem::size_of::<HidLongMessage>()],
+        })
+    }
+
     pub async fn read(&mut self) -> anyhow::Result<HidMessage> {
         let bytes_read = self.file.read(&mut self.buf).await?;
         HidMessage::from_bytes(&self.buf[..bytes_read])
@@ -123,29 +135,5 @@ impl HidDevice {
         let written = self.file.write(bytes).await?;
         assert_eq!(bytes.len(), written);
         Ok(())
-    }
-
-    pub fn path(&self) -> &PathBuf {
-        &self.path
-    }
-}
-
-pub trait IntoHidDevice {
-    fn into_hid_device(self) -> impl Future<Output = anyhow::Result<HidDevice>>;
-}
-
-impl IntoHidDevice for HidDeviceInfo {
-    async fn into_hid_device(self) -> anyhow::Result<HidDevice> {
-        let file = fs::OpenOptions::new()
-            .read(true)
-            .write(true)
-            .open(&self.path)
-            .await
-            .map_err(|err| anyhow!("Path: {}; Error: {}", self.path.display().to_string(), err))?;
-        Ok(HidDevice {
-            path: self.path,
-            file,
-            buf: [0; std::mem::size_of::<HidLongMessage>()],
-        })
     }
 }

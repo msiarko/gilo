@@ -1,4 +1,4 @@
-use gilo::{HidDevice, HidDeviceInfo, IntoHidDevice};
+use gilo::{HidDevice, HidDeviceInfo};
 use tokio::{
     select,
     signal::ctrl_c,
@@ -12,14 +12,12 @@ async fn main() -> anyhow::Result<()> {
     let device_infos = gilo::scan_devices()?.filter(is_logitech_device);
     let mut join_set = JoinSet::new();
     for device_info in device_infos {
-        let hid_device_result = device_info.into_hid_device().await;
-        match hid_device_result {
-            Ok(device) => {
-                let rx = tx.subscribe();
-                join_set.spawn(process_messages(device, rx));
-            }
-            Err(_) => continue,
-        }
+        let Ok(device) = HidDevice::new(device_info).await else {
+            continue;
+        };
+
+        let rx = tx.subscribe();
+        join_set.spawn(process_messages(device, rx));
     }
 
     select! {
@@ -40,12 +38,12 @@ async fn process_messages(mut device: HidDevice, cancel: Receiver<()>) {
     while cancel.is_empty() {
         match device.read().await {
             Ok(msg) => {
-                let path = device.path().display();
+                let path = device.info.path.display();
                 println!("Path: {}; Message: {:X?}", path, msg.as_bytes());
                 continue;
             }
             Err(e) => {
-                let path = device.path().display();
+                let path = device.info.path.display();
                 eprintln!("Error reading from {path}: {e}");
                 break;
             }
