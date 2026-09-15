@@ -4,6 +4,8 @@ use std::{
     path::PathBuf,
 };
 
+use anyhow::Context;
+
 use crate::hidapi::HidDeviceInfo;
 
 #[repr(C)]
@@ -17,7 +19,8 @@ struct HidRawDevInfo {
 const HIDIOCGRAWINFO: u64 = libc::_IOR::<HidRawDevInfo>('H' as u32, 0x03) as u64;
 
 pub(super) fn scan_devices() -> anyhow::Result<impl Iterator<Item = HidDeviceInfo>> {
-    Ok(fs::read_dir("/dev")?
+    Ok(fs::read_dir("/dev")
+        .context("Filed to read '/dev' directory")?
         .filter_map(|entry| entry.ok())
         .filter(|entry| {
             entry.file_type().is_ok_and(|e| e.is_char_device())

@@ -6,6 +6,7 @@ mod windows;
 
 use std::path::PathBuf;
 
+#[allow(dead_code)]
 pub struct HidDeviceInfo {
     pub path: PathBuf,
     pub vendor: u16,
@@ -13,7 +14,6 @@ pub struct HidDeviceInfo {
 }
 
 impl HidDeviceInfo {
-    #[allow(dead_code)]
     fn new(path: PathBuf, vendor: u16, product: u16) -> Self {
         Self {
             path,

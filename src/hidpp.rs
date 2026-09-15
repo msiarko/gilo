@@ -1,6 +1,6 @@
 #![allow(dead_code)]
 
-use anyhow::anyhow;
+use anyhow::{Context, anyhow};
 
 use tokio::{
     fs,
@@ -117,7 +117,7 @@ impl HidDevice {
             .write(true)
             .open(&info.path)
             .await
-            .map_err(|err| anyhow!("Path: {}; Error: {}", info.path.display(), err))?;
+            .context(format!("{:?}: Failed to open", info.path))?;
         Ok(HidDevice {
             info: info,
             file,
@@ -126,13 +126,21 @@ impl HidDevice {
     }
 
     pub async fn read(&mut self) -> anyhow::Result<HidMessage> {
-        let bytes_read = self.file.read(&mut self.buf).await?;
+        let bytes_read = self
+            .file
+            .read(&mut self.buf)
+            .await
+            .context(format!("{:?}: Failed to read", self.info.path))?;
         HidMessage::from_bytes(&self.buf[..bytes_read])
     }
 
     pub async fn write(&mut self, message: &HidMessage) -> anyhow::Result<()> {
         let bytes = message.as_bytes();
-        let written = self.file.write(bytes).await?;
+        let written = self
+            .file
+            .write(bytes)
+            .await
+            .context(format!("{:?}: Failed to write", self.info.path))?;
         assert_eq!(bytes.len(), written);
         Ok(())
     }

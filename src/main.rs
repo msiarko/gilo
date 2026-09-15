@@ -1,4 +1,8 @@
-use gilo::{HidDevice, HidDeviceInfo};
+mod hidapi;
+mod hidpp;
+
+use hidapi::{HidDeviceInfo, scan_devices};
+use hidpp::HidDevice;
 use tokio::{
     select,
     signal::ctrl_c,
@@ -9,7 +13,7 @@ use tokio::{
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
     let (tx, _) = broadcast::channel(1);
-    let device_infos = gilo::scan_devices()?.filter(is_logitech_device);
+    let device_infos = scan_devices()?.filter(is_logitech_device);
     let mut join_set = JoinSet::new();
     for device_info in device_infos {
         let Ok(device) = HidDevice::new(device_info).await else {
