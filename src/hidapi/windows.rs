@@ -86,7 +86,7 @@ impl WinHidDeviceIterator {
         let success = unsafe {
             SetupDiEnumDeviceInterfaces(
                 self.device_info_set.0,
-                std::ptr::null(),
+                std::ptr::null_mut(),
                 &self.guid,
                 index,
                 &mut iface_data,
@@ -101,7 +101,7 @@ impl WinHidDeviceIterator {
         unsafe {
             SetupDiGetDeviceInterfaceDetailW(
                 self.device_info_set.0,
-                &iface_data,
+                &mut iface_data,
                 std::ptr::null_mut(),
                 0,
                 &mut required_size,
@@ -124,7 +124,7 @@ impl WinHidDeviceIterator {
         let success = unsafe {
             SetupDiGetDeviceInterfaceDetailW(
                 self.device_info_set.0,
-                &iface_data,
+                &mut iface_data,
                 detail_data,
                 required_size,
                 std::ptr::null_mut(),
@@ -154,7 +154,7 @@ impl WinHidDeviceIterator {
 
         let handle = SafeHandle(raw_handle);
         let mut attrs = HIDD_ATTRIBUTES::default();
-        if !unsafe { HidD_GetAttributes(handle.0, &mut attrs) } {
+        if unsafe { HidD_GetAttributes(handle.0, &mut attrs) } == u8::default() {
             return Err(DeviceError::Skip);
         }
 

@@ -87,9 +87,9 @@ dependencies = [
 
 [[package]]
 name = "syn"
-version = "3.0.5"
+version = "3.0.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "12df2e0110f65b775f769bb17ef989067a1d931b2eb822bd4346631eeada89f9"
+checksum = "8593e8e72159ed2257d083c7a454a85cbf854f37a0966d8d483aff8c8a3ebcee"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -124,9 +124,9 @@ dependencies = [
 
 [[package]]
 name = "unicode-ident"
-version = "1.0.24"
+version = "1.0.26"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e6e4313cd5fcd3dad5cafa179702e2b244f760991f45397d14d4ebf38247da75"
+checksum = "d245f478577f809a851594d02313b640fb437e0bb33866753cff937863096954"
 
 [[package]]
 name = "wasi"
@@ -143,7 +143,7 @@ checksum = "f0805222e57f7521d6a62e36fa9163bc891acd422f971defe97d64e70d0a4fe5"
 [[package]]
 name = "windows-link"
 version = "0.100.0"
-source = "git+https://github.com/microsoft/windows-rs.git#317646c941aa18916ffa5daeb4ffd5ffa4cd26f3"
+source = "git+https://github.com/microsoft/windows-rs.git#ddfc27f9e52d8d5c4ef3cb31f2b1bda7b352b7da"
 
 [[package]]
 name = "windows-sys"
@@ -157,7 +157,7 @@ dependencies = [
 [[package]]
 name = "windows-sys"
 version = "0.100.0"
-source = "git+https://github.com/microsoft/windows-rs.git#317646c941aa18916ffa5daeb4ffd5ffa4cd26f3"
+source = "git+https://github.com/microsoft/windows-rs.git#ddfc27f9e52d8d5c4ef3cb31f2b1bda7b352b7da"
 dependencies = [
  "windows-link 0.100.0",
 ]
